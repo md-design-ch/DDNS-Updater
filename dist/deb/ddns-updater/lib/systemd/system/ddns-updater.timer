@@ -1,0 +1,11 @@
+[Unit]
+Description=Run DDNS updater every minute
+
+[Timer]
+OnCalendar=minutely
+AccuracySec=1s
+Persistent=true
+Unit=ddns-updater.service
+
+[Install]
+WantedBy=timers.target

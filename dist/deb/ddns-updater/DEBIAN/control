@@ -1,0 +1,11 @@
+Package: ddns-updater
+Version: 0.1
+Section: net
+Priority: optional
+Architecture: all
+Maintainer: MDSolutions Miljantejs
+Depends: bash, curl, systemd
+Description: Remote DDNS updater with systemd timer
+ DDNS updater that checks the host public IP and posts updates to
+ configured HTTP endpoints. Includes a systemd oneshot service,
+ minutely timer, and a ddns-updater CLI command.

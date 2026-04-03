@@ -5,6 +5,7 @@ set -euo pipefail
 SERVICE_NAME="ddns-updater.service"
 TIMER_NAME="ddns-updater.timer"
 INSTALL_DIR="/usr/local/lib/ddns-updater"
+COMMAND_LINK="/usr/local/bin/ddns-updater"
 CONFIG_DIR="/etc/default"
 CONFIG_FILE="${CONFIG_DIR}/ddns-updater"
 LEGACY_CONFIG_EXAMPLE_FILE="${CONFIG_DIR}/ddns-updater.example"
@@ -23,9 +24,10 @@ Manual uninstall:
 2. Run: systemctl stop ddns-updater.service
 3. Delete /etc/systemd/system/ddns-updater.service
 4. Delete /etc/systemd/system/ddns-updater.timer
-5. Delete /usr/local/lib/ddns-updater/ddns-updater.sh
-6. Run: systemctl daemon-reload
-7. Delete /etc/default/ddns-updater and /var/lib/ddns-updater
+5. Delete /usr/local/bin/ddns-updater
+6. Delete /usr/local/lib/ddns-updater/ddns-updater.sh
+7. Run: systemctl daemon-reload
+8. Delete /etc/default/ddns-updater and /var/lib/ddns-updater
 EOF
 }
 
@@ -50,6 +52,7 @@ stop_units() {
 
 remove_files() {
     rm -f "$SERVICE_PATH" "$TIMER_PATH" "$LEGACY_CONFIG_EXAMPLE_FILE"
+    rm -f "$COMMAND_LINK"
     rm -rf "$INSTALL_DIR"
     rm -f "$CONFIG_FILE"
     rm -rf "$STATE_DIR"
@@ -64,15 +67,11 @@ reload_systemd() {
     systemctl reset-failed >/dev/null 2>&1 || true
 }
 
-cleanup_dirs() {
-    rmdir --ignore-fail-on-non-empty "$CONFIG_DIR" >/dev/null 2>&1 || true
-}
-
 if [[ "${1:-}" == "--help" ]]; then
     cat <<'EOF'
 Usage: sudo ./uninstall.sh
 
-Removes the DDNS updater script, systemd units, config, and state.
+Removes the ddns-updater command, script, systemd units, config, and state.
 EOF
     exit 0
 fi
@@ -86,6 +85,5 @@ require_root
 stop_units
 remove_files
 reload_systemd
-cleanup_dirs
 
 log "Uninstall complete. Config and state were removed."

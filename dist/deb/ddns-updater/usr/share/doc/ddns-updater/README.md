@@ -3,7 +3,7 @@
 `ddns-updater.sh` runs on a remote Linux machine, detects its public IP address, and sends that IP to one or more HTTP endpoints so your server can keep track of how to reach the device.
 
 - software owner: `MDSolutions Miljantejs`
-- current version: `0.1.1`
+- current version: `0.1`
 
 The project includes:
 
@@ -102,8 +102,6 @@ Important variables:
 - `IP_API_URL`: public IP lookup endpoint
 - `SAVE_FILE`: where the last successful IP is stored
 
-The sample config leaves `AUTH_HEADER` commented out. Uncomment it only if your endpoint requires an extra header.
-
 Example payload:
 
 ```json
@@ -132,13 +130,13 @@ Build a clean `.tar.gz` archive:
 The archive will be created in `dist/`, for example:
 
 ```bash
-dist/ddns-updater_0.1.1_linux.tar.gz
+dist/ddns-updater_0.1_linux.tar.gz
 ```
 
 Extract it:
 
 ```bash
-tar -xzf dist/ddns-updater_0.1.1_linux.tar.gz
+tar -xzf dist/ddns-updater_0.1_linux.tar.gz
 cd DDNS-Updater
 ```
 
@@ -165,13 +163,13 @@ This will:
 Manual installation:
 
 1. Install `curl`
-2. Create the install directories: `sudo install -d /usr/local/lib/ddns-updater /var/lib/ddns-updater`
-3. Copy `ddns-updater.sh` to `/usr/local/lib/ddns-updater/ddns-updater.sh`
-4. Make it executable
-5. Create a symlink: `sudo ln -sf /usr/local/lib/ddns-updater/ddns-updater.sh /usr/local/bin/ddns-updater`
-6. Copy `ddns-updater.service` to `/etc/systemd/system/ddns-updater.service`
-7. Copy `ddns-updater.timer` to `/etc/systemd/system/ddns-updater.timer`
-8. Copy `ddns-updater.env` to `/etc/default/ddns-updater`
+2. Copy `ddns-updater.sh` to `/usr/local/lib/ddns-updater/ddns-updater.sh`
+3. Make it executable
+4. Create a symlink: `sudo ln -sf /usr/local/lib/ddns-updater/ddns-updater.sh /usr/local/bin/ddns-updater`
+5. Copy `ddns-updater.service` to `/etc/systemd/system/ddns-updater.service`
+6. Copy `ddns-updater.timer` to `/etc/systemd/system/ddns-updater.timer`
+7. Copy `ddns-updater.env` to `/etc/default/ddns-updater`
+8. Create `/var/lib/ddns-updater`
 9. Run `sudo systemctl daemon-reload`
 10. Run `sudo systemctl enable --now ddns-updater.timer`
 
@@ -186,21 +184,19 @@ Build a `.deb` package:
 The package will be created in `dist/`, for example:
 
 ```bash
-dist/ddns-updater_0.1.1_all.deb
+dist/ddns-updater_0.1_all.deb
 ```
 
 Install it on Debian, Ubuntu, or Raspberry Pi OS:
 
 ```bash
-sudo apt install ./dist/ddns-updater_0.1.1_all.deb
+sudo apt install ./dist/ddns-updater_0.1_all.deb
 ```
-
-If the `.deb` is inside a private home directory, `apt` may print an `_apt` sandbox warning while still completing the install. Copying the file to `/tmp` or using `dpkg -i` avoids that warning.
 
 Or with `dpkg`:
 
 ```bash
-sudo dpkg -i ./dist/ddns-updater_0.1.1_all.deb
+sudo dpkg -i ./dist/ddns-updater_0.1_all.deb
 sudo apt-get install -f
 ```
 
@@ -217,8 +213,6 @@ Remove the package:
 ```bash
 sudo apt remove ddns-updater
 ```
-
-This removes the installed program files but keeps `/etc/default/ddns-updater`.
 
 Purge config and state too:
 
@@ -284,14 +278,12 @@ What they do:
 - `ddns-updater remove-url`: removes one endpoint URL from `EXTERNAL_SERVER_URLS`
 - `ddns-updater test-connection`: verifies `curl` and public IP lookup only
 - `ddns-updater test-endpoints`: sends a real test POST to each configured endpoint but does not update the local state file
-- `ddns-updater doctor`: checks whether the installed command on `PATH`, the active config, `curl`, the timer, and the service are present and operational
+- `ddns-updater doctor`: checks whether the installed command, config, timer, and service are present and active
 - `ddns-updater version`: prints the installed version
 
 For installed systems, use `sudo` with `add-url` and `remove-url` because they modify `/etc/default/ddns-updater`.
 
 ## Uninstall
-
-This section applies to tarball installs. For Debian package installs, use `sudo apt remove ddns-updater` or `sudo apt purge ddns-updater`.
 
 ```bash
 sudo ./uninstall.sh
@@ -308,4 +300,5 @@ This removes:
 
 ## Notes
 
+- Do not commit real production secrets unless you intentionally want them distributed with the package.
 - If you change `SAVE_FILE`, keep it under `/var/lib/ddns-updater` unless you also adjust the service sandbox settings.

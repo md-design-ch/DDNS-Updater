@@ -5,7 +5,7 @@ EXTERNAL_SERVER_URLS="https://wphh.franckmuller.com/api/update-gate-ip https://w
 # DEVICE_ID=remote-gate
 
 # Optional extra header, for example:
-# AUTH_HEADER="Authorization: Bearer your-secret-token"
+AUTH_HEADER="Authorization: Bearer YourSecretToken"
 
 # Public IP discovery endpoint.
 IP_API_URL=https://api.ipify.org

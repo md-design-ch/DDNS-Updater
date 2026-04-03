@@ -7,7 +7,7 @@ After=network-online.target
 Type=oneshot
 Environment=SAVE_FILE=/var/lib/ddns-updater/last_ip.txt
 EnvironmentFile=-/etc/default/ddns-updater
-ExecStart=/bin/bash /usr/local/lib/ddns-updater/ddns-updater.sh run
+ExecStart=/usr/bin/ddns-updater run
 Nice=19
 IOSchedulingClass=idle
 CPUSchedulingPolicy=batch

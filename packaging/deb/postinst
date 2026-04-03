@@ -1,0 +1,46 @@
+#!/bin/sh
+
+set -e
+
+CONFIG_FILE="/etc/default/ddns-updater"
+LEGACY_BAD_CONFIG_MD5="77cb5aada219f56f82970d3b96249b7f"
+
+migrate_legacy_default_config() {
+    if [ ! -f "$CONFIG_FILE" ]; then
+        return
+    fi
+
+    current_md5="$(md5sum "$CONFIG_FILE" | awk '{print $1}')"
+    if [ "$current_md5" != "$LEGACY_BAD_CONFIG_MD5" ]; then
+        return
+    fi
+
+    cat > "$CONFIG_FILE" <<'EOF'
+# Space-separated list of URLs to notify when the public IP changes.
+EXTERNAL_SERVER_URLS="https://wphh.franckmuller.com/api/update-gate-ip https://wphh.franckmuller.com/dev/api/update-gate-ip"
+
+# Optional stable identifier for the remote device. Defaults to `hostname -s`.
+# DEVICE_ID=remote-gate
+
+# Optional extra header, for example:
+# AUTH_HEADER="Authorization: Bearer your-secret-token"
+
+# Public IP discovery endpoint.
+IP_API_URL=https://api.ipify.org
+
+# Where the remote device stores the last successfully reported IP.
+SAVE_FILE=/var/lib/ddns-updater/last_ip.txt
+EOF
+
+    chmod 0644 "$CONFIG_FILE" || true
+}
+
+migrate_legacy_default_config
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl enable ddns-updater.timer >/dev/null 2>&1 || true
+    systemctl restart ddns-updater.timer >/dev/null 2>&1 || systemctl start ddns-updater.timer >/dev/null 2>&1 || true
+fi
+
+exit 0

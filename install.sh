@@ -6,6 +6,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 SERVICE_NAME="ddns-updater.service"
 TIMER_NAME="ddns-updater.timer"
 INSTALL_DIR="/usr/local/lib/ddns-updater"
+COMMAND_LINK="/usr/local/bin/ddns-updater"
+COMMAND_DIR="$(dirname -- "$COMMAND_LINK")"
 CONFIG_DIR="/etc/default"
 CONFIG_FILE="${CONFIG_DIR}/ddns-updater"
 CONFIG_SOURCE_FILE="${SCRIPT_DIR}/ddns-updater.env"
@@ -37,13 +39,14 @@ show_manual_steps() {
     cat <<'EOF'
 Manual installation:
 1. Install curl using your package manager.
-2. Copy ddns-updater.sh to /usr/local/lib/ddns-updater/ddns-updater.sh and make it executable.
-3. Copy ddns-updater.service to /etc/systemd/system/ddns-updater.service.
-4. Copy ddns-updater.timer to /etc/systemd/system/ddns-updater.timer.
-5. Copy ddns-updater.env to /etc/default/ddns-updater.
-6. Create /var/lib/ddns-updater.
-7. Run: systemctl daemon-reload
-8. Run: systemctl enable --now ddns-updater.timer
+2. Create /usr/local/lib/ddns-updater and /var/lib/ddns-updater.
+3. Copy ddns-updater.sh to /usr/local/lib/ddns-updater/ddns-updater.sh and make it executable.
+4. Create a symlink: ln -sf /usr/local/lib/ddns-updater/ddns-updater.sh /usr/local/bin/ddns-updater
+5. Copy ddns-updater.service to /etc/systemd/system/ddns-updater.service.
+6. Copy ddns-updater.timer to /etc/systemd/system/ddns-updater.timer.
+7. Copy ddns-updater.env to /etc/default/ddns-updater.
+8. Run: systemctl daemon-reload
+9. Run: systemctl enable --now ddns-updater.timer
 EOF
 }
 
@@ -100,8 +103,9 @@ install_curl() {
 }
 
 install_files() {
-    install -d -m 0755 "$INSTALL_DIR" "$STATE_DIR" "$CONFIG_DIR"
+    install -d -m 0755 "$INSTALL_DIR" "$STATE_DIR" "$CONFIG_DIR" "$COMMAND_DIR"
     install -m 0755 "${SCRIPT_DIR}/ddns-updater.sh" "${INSTALL_DIR}/ddns-updater.sh"
+    ln -sf "${INSTALL_DIR}/ddns-updater.sh" "$COMMAND_LINK"
     install -m 0644 "${SCRIPT_DIR}/ddns-updater.service" "$SERVICE_PATH"
     install -m 0644 "${SCRIPT_DIR}/ddns-updater.timer" "$TIMER_PATH"
     rm -f "$LEGACY_CONFIG_EXAMPLE_FILE"
@@ -130,7 +134,7 @@ if [[ "${1:-}" == "--help" ]]; then
 Usage: sudo ./install.sh
 
 Installs curl if needed, installs the DDNS updater script and systemd units,
-and enables the timer that runs every minute.
+creates the ddns-updater command, and enables the timer that runs every minute.
 
 Use the checked-in files directly if you prefer a manual installation.
 EOF

@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -e
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl enable ddns-updater.timer >/dev/null 2>&1 || true
+    systemctl restart ddns-updater.timer >/dev/null 2>&1 || systemctl start ddns-updater.timer >/dev/null 2>&1 || true
+fi
+
+exit 0

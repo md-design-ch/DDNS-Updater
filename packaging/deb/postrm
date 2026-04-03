@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -e
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl reset-failed ddns-updater.service ddns-updater.timer >/dev/null 2>&1 || true
+fi
+
+if [ "${1:-}" = "purge" ]; then
+    rm -rf /var/lib/ddns-updater
+fi
+
+exit 0

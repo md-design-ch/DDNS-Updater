@@ -7,13 +7,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "$SCRIPT_PATH")" && pwd)"
 DEFAULT_SAVE_FILE="${SCRIPT_DIR}/last_ip.txt"
 DEFAULT_CONFIG_FILE="/etc/default/ddns-updater"
 LOCAL_CONFIG_FILE="${SCRIPT_DIR}/ddns-updater.env"
-VERSION="0.1.1"
-
-if [[ ${CONFIG_FILE+x} ]]; then
-    CONFIG_FILE_WAS_EXPLICIT=1
-else
-    CONFIG_FILE_WAS_EXPLICIT=0
-fi
+VERSION="0.1"
 
 CONFIG_FILE="${CONFIG_FILE:-$DEFAULT_CONFIG_FILE}"
 HOSTNAME_VALUE="$(hostname -f 2>/dev/null || hostname)"
@@ -48,7 +42,7 @@ fail() {
 load_config_file() {
     local var_name
 
-    if [[ "$CONFIG_FILE_WAS_EXPLICIT" -eq 0 && ! -f "$CONFIG_FILE" && -f "$LOCAL_CONFIG_FILE" ]]; then
+    if [[ ! -f "$CONFIG_FILE" && -f "$LOCAL_CONFIG_FILE" ]]; then
         CONFIG_FILE="$LOCAL_CONFIG_FILE"
     fi
 
@@ -60,13 +54,9 @@ load_config_file() {
     done
 
     if [[ -f "$CONFIG_FILE" ]]; then
-        [[ -r "$CONFIG_FILE" ]] || fail "Config file is not readable: ${CONFIG_FILE}. Re-run with sudo or restore its permissions."
         # shellcheck disable=SC1090
         set -a
-        if ! . "$CONFIG_FILE"; then
-            set +a
-            fail "Failed to load config file: ${CONFIG_FILE}"
-        fi
+        . "$CONFIG_FILE"
         set +a
     fi
 
@@ -87,11 +77,6 @@ apply_defaults() {
     CURL_BIN="${CURL_BIN-curl}"
     CONNECT_TIMEOUT="${CONNECT_TIMEOUT-10}"
     MAX_TIME="${MAX_TIME-20}"
-}
-
-prepare_runtime_config() {
-    load_config_file
-    apply_defaults
 }
 
 json_escape() {
@@ -139,7 +124,6 @@ write_config_var() {
     local tmp_file
     local line
     local updated=0
-    local euid="${EUID:-$(id -u)}"
 
     ensure_config_writable
     mkdir -p "$(dirname -- "$CONFIG_FILE")"
@@ -167,15 +151,6 @@ write_config_var() {
         printf '%s\n' "$replacement" >> "$tmp_file"
     fi
 
-    if [[ -f "$CONFIG_FILE" ]]; then
-        chmod --reference="$CONFIG_FILE" "$tmp_file"
-        if [[ "$euid" -eq 0 ]]; then
-            chown --reference="$CONFIG_FILE" "$tmp_file"
-        fi
-    else
-        chmod 0644 "$tmp_file"
-    fi
-
     mv "$tmp_file" "$CONFIG_FILE"
 }
 
@@ -187,11 +162,6 @@ parse_server_urls() {
 load_server_urls() {
     parse_server_urls
     [[ ${#SERVER_URLS[@]} -gt 0 ]] || fail "EXTERNAL_SERVER_URLS is empty."
-}
-
-validate_url() {
-    local url="$1"
-    [[ "$url" =~ ^https?://[^[:space:]]+$ ]] || fail "Invalid URL: ${url}. Expected http:// or https:// with no spaces."
 }
 
 persist_server_urls() {
@@ -218,9 +188,7 @@ get_current_ip() {
 
 resolve_current_ip() {
     local current_ip
-    if ! current_ip="$(get_current_ip | tr -d '[:space:]')"; then
-        fail "Could not determine the current public IP from ${IP_API_URL}."
-    fi
+    current_ip="$(get_current_ip | tr -d '[:space:]')"
     [[ -n "$current_ip" ]] || fail "Could not determine the current public IP."
     is_valid_ip "$current_ip" || fail "Received an invalid IP address: ${current_ip}"
     printf '%s' "$current_ip"
@@ -241,18 +209,7 @@ update_last_ip() {
 
 is_valid_ip() {
     local ip="$1"
-    local octet
-    local -a octets=()
-
-    if [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
-        IFS=. read -r -a octets <<< "$ip"
-        for octet in "${octets[@]}"; do
-            (( octet >= 0 && octet <= 255 )) || return 1
-        done
-        return 0
-    fi
-
-    [[ "$ip" == *:* && "$ip" =~ ^[0-9A-Fa-f:]+$ ]]
+    [[ "$ip" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ || "$ip" =~ ^[0-9A-Fa-f:]+$ ]]
 }
 
 build_payload() {
@@ -393,7 +350,6 @@ add_url_cmd() {
     local existing_url
 
     [[ -n "$url" ]] || fail "Usage: ddns-updater add-url <url>"
-    validate_url "$url"
     parse_server_urls
 
     for existing_url in "${SERVER_URLS[@]}"; do
@@ -455,69 +411,37 @@ doctor_cmd() {
     local service_result
     local next_elapse
     local command_path
-    local resolved_command_path
     local configured_urls
-    local curl_path
-    local config_load_failed=0
 
-    apply_defaults
+    ensure_curl
 
     if command_path="$(command -v ddns-updater 2>/dev/null)"; then
         report_ok "ddns-updater command is available at ${command_path}"
-        resolved_command_path="$(readlink -f -- "$command_path" 2>/dev/null || printf '%s' "$command_path")"
-        if [[ -x "$resolved_command_path" ]]; then
-            report_ok "ddns-updater entrypoint resolves to ${resolved_command_path}"
-        else
-            report_fail "ddns-updater entrypoint is not executable: ${resolved_command_path}"
-            failures=$((failures + 1))
-        fi
     else
         report_fail "ddns-updater command is not on PATH"
         failures=$((failures + 1))
     fi
 
-    if curl_path="$(command -v "$CURL_BIN" 2>/dev/null)"; then
-        report_ok "curl command is available at ${curl_path}"
+    if [[ -x "/usr/local/lib/ddns-updater/ddns-updater.sh" ]]; then
+        report_ok "installed script exists at /usr/local/lib/ddns-updater/ddns-updater.sh"
     else
-        report_fail "curl command is not available: ${CURL_BIN}"
+        report_fail "installed script is missing at /usr/local/lib/ddns-updater/ddns-updater.sh"
         failures=$((failures + 1))
     fi
 
     if [[ -f "$CONFIG_FILE" ]]; then
         report_ok "config file exists at ${CONFIG_FILE}"
-        if [[ -r "$CONFIG_FILE" ]]; then
-            # shellcheck disable=SC1090
-            set -a
-            if ! . "$CONFIG_FILE"; then
-                set +a
-                report_fail "config file could not be loaded: ${CONFIG_FILE}"
-                failures=$((failures + 1))
-                config_load_failed=1
-            else
-                set +a
-            fi
-        else
-            report_fail "config file is not readable: ${CONFIG_FILE}"
-            failures=$((failures + 1))
-            config_load_failed=1
-        fi
     else
         report_fail "config file is missing at ${CONFIG_FILE}"
         failures=$((failures + 1))
-        config_load_failed=1
     fi
 
-    if (( config_load_failed == 0 )); then
-        configured_urls="${EXTERNAL_SERVER_URLS//$'\n'/ }"
-        read -r -a SERVER_URLS <<< "$configured_urls"
-        if [[ ${#SERVER_URLS[@]} -gt 0 ]]; then
-            report_ok "${#SERVER_URLS[@]} endpoint URL(s) configured"
-        else
-            report_warn "no endpoint URLs are configured"
-            warnings=$((warnings + 1))
-        fi
+    configured_urls="${EXTERNAL_SERVER_URLS//$'\n'/ }"
+    read -r -a SERVER_URLS <<< "$configured_urls"
+    if [[ ${#SERVER_URLS[@]} -gt 0 ]]; then
+        report_ok "${#SERVER_URLS[@]} endpoint URL(s) configured"
     else
-        report_warn "configured endpoint URLs could not be inspected"
+        report_warn "no endpoint URLs are configured"
         warnings=$((warnings + 1))
     fi
 
@@ -625,29 +549,26 @@ EOF
 main() {
     local command="${1:-run}"
 
+    load_config_file
+    apply_defaults
+
     case "$command" in
         run)
-            prepare_runtime_config
             run_update
             ;;
         test-connection)
-            prepare_runtime_config
             test_connection_cmd
             ;;
         test-endpoints)
-            prepare_runtime_config
             test_endpoints_cmd
             ;;
         list-urls|list-endpoints)
-            prepare_runtime_config
             list_urls_cmd
             ;;
         add-url|add-endpoint)
-            prepare_runtime_config
             add_url_cmd "${2:-}"
             ;;
         remove-url|remove-endpoint)
-            prepare_runtime_config
             remove_url_cmd "${2:-}"
             ;;
         doctor|check|status)
