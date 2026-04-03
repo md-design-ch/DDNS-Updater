@@ -1,0 +1,23 @@
+[Unit]
+Description=DDNS updater
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=SAVE_FILE=/var/lib/ddns-updater/last_ip.txt
+EnvironmentFile=-/etc/default/ddns-updater
+ExecStart=/bin/bash /usr/local/lib/ddns-updater/ddns-updater.sh
+Nice=19
+IOSchedulingClass=idle
+CPUSchedulingPolicy=batch
+StateDirectory=ddns-updater
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/ddns-updater
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target
